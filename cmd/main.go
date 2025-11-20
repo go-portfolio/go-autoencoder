@@ -21,11 +21,13 @@ func sigmoidDeriv(x float64) float64 {
 
 // Генерация матрицы случайных весов (распределение нормальное)
 func randomMatrix(rows, cols int) [][]float64 {
+    scale := math.Sqrt(2.0 / float64(rows+cols)) // Xavier для сигмоиды
+
     m := make([][]float64, rows) // создаём массив строк
     for i := range m {
         m[i] = make([]float64, cols) // создаём столбцы
         for j := range m[i] {
-            m[i][j] = rand.NormFloat64() * 0.1 // маленькие случайные веса
+            m[i][j] = rand.NormFloat64() * scale // маленькие случайные веса
         }
     }
     return m // возвращаем матрицу
