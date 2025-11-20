@@ -12,11 +12,11 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	inputSize := 8
-	latentSize := 3
+	latentSize := 8
 	ae := autoencoder.NewAutoencoder(inputSize, latentSize)
 
 	// --- Генерация обучающих данных ---
-	numTrain := 10
+	numTrain := 50
 	trainBatch := make([][]float64, numTrain)
 	for i := 0; i < numTrain; i++ {
 		sample := make([]float64, inputSize)

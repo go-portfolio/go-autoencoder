@@ -57,6 +57,14 @@ func (ae *Autoencoder) Forward(x [][]float64) ([][]float64, [][]float64, [][]flo
 		}
 	}
 
+	for i := range out[0] {
+		if out[0][i] > 0.5 {
+			out[0][i] = 1
+		} else {
+			out[0][i] = 0
+		}
+	}
+
 	return a1, out, z1, z2 // возвращаем всё для backprop
 }
 
