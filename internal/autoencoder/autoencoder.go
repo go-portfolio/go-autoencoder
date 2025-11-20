@@ -130,14 +130,26 @@ func (ae *Autoencoder) backpropHidden(dOut, z1 [][]float64) [][]float64 {
 	dA1 := make([][]float64, len(dOut))
 	for i := range dA1 {
 		dA1[i] = make([]float64, ae.latentSize)
-		for j := 0; j < ae.latentSize; j++ {
-			sum := 0.0
-			for k := 0; k < ae.inputSize; k++ {
-				sum += dOut[i][k] * ae.W2[j][k]
-			}
-			dA1[i][j] = sum * mathutils.SigmoidDeriv(z1[i][j])
-		}
 	}
+
+	var wg sync.WaitGroup
+	numWorkers := runtime.NumCPU() // или len(dOut) если батч меньше
+
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for j := 0; j < ae.latentSize; j++ {
+				sum := 0.0
+				for k := 0; k < ae.inputSize; k++ {
+					sum += dOut[i][k] * ae.W2[j][k]
+				}
+				dA1[i][j] = sum * mathutils.SigmoidDeriv(z1[i][j])
+			}
+		}(i)
+	}
+
+	wg.Wait() // ждём, пока все горутины завершатся
 	return dA1
 }
 
