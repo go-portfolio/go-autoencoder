@@ -1,37 +1,70 @@
-package main // объявляем основной пакет, точка входа программы
+package main
 
 import (
-	"fmt" // пакет для вывода на экран
-	// математические функции (exp и т.п.)
-	// генератор случайных чисел
+	"fmt"
+	"math/rand"
+	"time"
+
 	"github.com/go-portfolio/go-neuro-autoencoder/internal/autoencoder"
 )
 
-// -------------------- Utility functions --------------------
-
-// -------------------- Main training loop --------------------
-
 func main() {
-	inputSize := 8                                          // размер входного вектора
-	latentSize := 3                                         // хотим сжать до 3 значений
-	ae := autoencoder.NewAutoencoder(inputSize, latentSize) // создаём автоэнкодер
+	rand.Seed(time.Now().UnixNano())
 
-	// Один тренировочный пример — бинарный вектор
-	x := []float64{0, 1, 0, 1, 0, 1, 0, 1}
-	batch := [][]float64{x} // оформляем как батч (1 пример)
+	inputSize := 8
+	latentSize := 3
+	ae := autoencoder.NewAutoencoder(inputSize, latentSize)
 
-	// Обучаем 2000 эпох
-	for epoch := 0; epoch < 2000; epoch++ {
-		loss := ae.TrainStep(batch, 0.05) // шаг оптимизации
+	// --- Генерация обучающих данных ---
+	numTrain := 10
+	trainBatch := make([][]float64, numTrain)
+	for i := 0; i < numTrain; i++ {
+		sample := make([]float64, inputSize)
+		for j := 0; j < inputSize; j++ {
+			sample[j] = float64(rand.Intn(2))
+		}
+		trainBatch[i] = sample
+	}
 
-		if epoch%200 == 0 { // каждые 200 эпох выводим ошибку
-			fmt.Println("Epoch", epoch, "Loss:", loss)
+	// --- Генерация тестовых данных (не видимых при обучении) ---
+	numTest := 5
+	testBatch := make([][]float64, numTest)
+	for i := 0; i < numTest; i++ {
+		sample := make([]float64, inputSize)
+		for j := 0; j < inputSize; j++ {
+			sample[j] = float64(rand.Intn(2))
+		}
+		testBatch[i] = sample
+	}
+
+	// --- Обучение автоэнкодера ---
+	epochs := 2000
+	learningRate := 0.05
+
+	for epoch := 0; epoch < epochs; epoch++ {
+		loss := ae.TrainStep(trainBatch, learningRate)
+		if epoch%200 == 0 {
+			fmt.Printf("Epoch %d Loss: %.6f\n", epoch, loss)
 		}
 	}
 
-	// Проверяем результат обучения
-	_, out, _, _ := ae.Forward(batch)
+	// --- Проверка на обучающих данных ---
+	fmt.Println("\n=== Reconstruction on training data ===")
+	for i, x := range trainBatch {
+		_, out, _, _ := ae.Forward([][]float64{x})
+		fmt.Printf("Train Sample %d:\n", i)
+		fmt.Println("Input:        ", x)
+		fmt.Println("Reconstructed:", out[0])
+		fmt.Println()
+	}
 
-	fmt.Println("Input:      ", x)        // печатаем вход
-	fmt.Println("Reconstructed:", out[0]) // печатаем восстановленный вектор
+	// --- Проверка на тестовых данных ---
+	fmt.Println("\n=== Reconstruction on test data ===")
+	for i, x := range testBatch {
+		_, out, _, _ := ae.Forward([][]float64{x})
+		fmt.Printf("Test Sample %d:\n", i)
+		fmt.Println("Input:        ", x)
+		fmt.Println("Reconstructed:", out[0])
+		fmt.Println()
+	}
 }
