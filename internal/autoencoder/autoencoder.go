@@ -1,6 +1,10 @@
 package autoencoder
 
-import "github.com/go-portfolio/go-neuro-autoencoder/internal/mathutils"
+import (
+	"sync"
+
+	"github.com/go-portfolio/go-neuro-autoencoder/internal/mathutils"
+)
 
 // Autoencoder представляет простой полносвязный автоэнкодер с одним скрытым слоем.
 // Состоит из энкодера (W1, b1) и декодера (W2, b2).
@@ -156,22 +160,50 @@ func (ae *Autoencoder) computeGradientsW1(x, dA1 [][]float64) ([][]float64, []fl
 }
 
 // updateWeights обновляет веса и bias автоэнкодера с использованием градиентов и скорости обучения lr.
+
 func (ae *Autoencoder) updateWeights(dW1 [][]float64, db1 []float64, dW2 [][]float64, db2 []float64, lr float64) {
+	var wg sync.WaitGroup
+
+	// Обновляем W1 параллельно
 	for i := 0; i < ae.inputSize; i++ {
-		for j := 0; j < ae.latentSize; j++ {
-			ae.W1[i][j] -= lr * dW1[i][j]
-		}
-	}
-	for j := 0; j < ae.latentSize; j++ {
-		ae.b1[j] -= lr * db1[j]
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for j := 0; j < ae.latentSize; j++ {
+				ae.W1[i][j] -= lr * dW1[i][j]
+			}
+		}(i)
 	}
 
-	for i := 0; i < ae.latentSize; i++ {
-		for j := 0; j < ae.inputSize; j++ {
-			ae.W2[i][j] -= lr * dW2[i][j]
+	// Обновляем b1 параллельно
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for j := 0; j < ae.latentSize; j++ {
+			ae.b1[j] -= lr * db1[j]
 		}
+	}()
+
+	// Обновляем W2 параллельно
+	for i := 0; i < ae.latentSize; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			for j := 0; j < ae.inputSize; j++ {
+				ae.W2[i][j] -= lr * dW2[i][j]
+			}
+		}(i)
 	}
-	for j := 0; j < ae.inputSize; j++ {
-		ae.b2[j] -= lr * db2[j]
-	}
+
+	// Обновляем b2 параллельно
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for j := 0; j < ae.inputSize; j++ {
+			ae.b2[j] -= lr * db2[j]
+		}
+	}()
+
+	// Ждём завершения всех горутин
+	wg.Wait()
 }
