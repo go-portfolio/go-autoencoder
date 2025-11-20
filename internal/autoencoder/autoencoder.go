@@ -1,6 +1,7 @@
 package autoencoder
 
 import (
+	"runtime"
 	"sync"
 
 	"github.com/go-portfolio/go-neuro-autoencoder/internal/mathutils"
@@ -140,7 +141,7 @@ func (ae *Autoencoder) backpropHidden(dOut, z1 [][]float64) [][]float64 {
 	return dA1
 }
 
-// computeGradientsW1 вычисляет градиенты весов и bias энкодера.
+// Параллельные вычисления выполняются по батчу и по нейронам.
 func (ae *Autoencoder) computeGradientsW1(x, dA1 [][]float64) ([][]float64, []float64) {
 	dW1 := make([][]float64, ae.inputSize)
 	for i := range dW1 {
@@ -148,14 +149,48 @@ func (ae *Autoencoder) computeGradientsW1(x, dA1 [][]float64) ([][]float64, []fl
 	}
 	db1 := make([]float64, ae.latentSize)
 
-	for i := 0; i < len(x); i++ {
-		for j := 0; j < ae.latentSize; j++ {
-			db1[j] += dA1[i][j]
-			for k := 0; k < ae.inputSize; k++ {
-				dW1[k][j] += x[i][k] * dA1[i][j]
-			}
+	numWorkers := runtime.NumCPU()
+	wg := sync.WaitGroup{}
+	chunkSize := (len(x) + numWorkers - 1) / numWorkers
+
+	for w := 0; w < numWorkers; w++ {
+		start := w * chunkSize
+		end := start + chunkSize
+		if end > len(x) {
+			end = len(x)
 		}
+
+		wg.Add(1)
+		go func(start, end int) {
+			defer wg.Done()
+			localDW := make([][]float64, ae.inputSize)
+			for i := range localDW {
+				localDW[i] = make([]float64, ae.latentSize)
+			}
+			localDB := make([]float64, ae.latentSize)
+
+			for i := start; i < end; i++ {
+				for j := 0; j < ae.latentSize; j++ {
+					localDB[j] += dA1[i][j]
+					for k := 0; k < ae.inputSize; k++ {
+						localDW[k][j] += x[i][k] * dA1[i][j]
+					}
+				}
+			}
+
+			// Суммируем локальные градиенты в глобальные
+			for i := 0; i < ae.inputSize; i++ {
+				for j := 0; j < ae.latentSize; j++ {
+					dW1[i][j] += localDW[i][j]
+				}
+			}
+			for j := 0; j < ae.latentSize; j++ {
+				db1[j] += localDB[j]
+			}
+		}(start, end)
 	}
+
+	wg.Wait()
 	return dW1, db1
 }
 
