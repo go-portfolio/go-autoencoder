@@ -20,6 +20,18 @@ type Autoencoder struct {
 	b2 []float64   // bias выходного слоя
 }
 
+func (ae *Autoencoder) Encode(x [][]float64) [][]float64 {
+	z1 := mathutils.MatMul(x, ae.W1)  // линейная трансформация
+	a1 := mathutils.SigmoidMatrix(z1) // активация
+	return a1
+}
+
+func (ae *Autoencoder) Decode(latent [][]float64) [][]float64 {
+	z2 := mathutils.MatMul(latent, ae.W2)
+	out := mathutils.SigmoidMatrix(z2)
+	return out
+}
+
 // NewAutoencoder создаёт новый автоэнкодер с заданными размерами входного и скрытого слоя.
 // Веса инициализируются случайно с помощью Xavier/He, bias инициализируются нулями.
 func NewAutoencoder(inputSize, latentSize int) *Autoencoder {
@@ -36,14 +48,13 @@ func NewAutoencoder(inputSize, latentSize int) *Autoencoder {
 }
 
 // Forward выполняет прямой проход автоэнкодера для батча входных данных x.
-// Возвращает:
-// - a1: активации скрытого слоя
-// - out: выход автоэнкодера
-// - z1: линейное преобразование входа (xW1 + b1) до активации
-// - z2: линейное преобразование скрытого слоя (a1W2 + b2) до активации
 func (ae *Autoencoder) Forward(x [][]float64) ([][]float64, [][]float64, [][]float64, [][]float64) {
+
+	// --- Энкодер ---
+	// z1 = xW1 + b1
 	z1 := mathutils.AddBias(mathutils.MatMul(x, ae.W1), ae.b1)
 
+	// a1 = sigmoid(z1)
 	a1 := make([][]float64, len(z1))
 	for i := range z1 {
 		a1[i] = make([]float64, len(z1[i]))
@@ -52,22 +63,16 @@ func (ae *Autoencoder) Forward(x [][]float64) ([][]float64, [][]float64, [][]flo
 		}
 	}
 
+	// --- Декодер ---
+	// z2 = a1W2 + b2
 	z2 := mathutils.AddBias(mathutils.MatMul(a1, ae.W2), ae.b2)
 
+	// out = sigmoid(z2)
 	out := make([][]float64, len(z2))
 	for i := range z2 {
 		out[i] = make([]float64, len(z2[i]))
 		for j := range z2[i] {
 			out[i][j] = mathutils.Sigmoid(z2[i][j])
-		}
-	}
-
-	// Применяем порог 0.5 для бинаризации выхода
-	for i := range out[0] {
-		if out[0][i] > 0.5 {
-			out[0][i] = 1
-		} else {
-			out[0][i] = 0
 		}
 	}
 
