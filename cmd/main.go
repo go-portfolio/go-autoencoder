@@ -11,8 +11,8 @@ import (
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
-	inputSize := 8      // размер входных векторов
-	latentSize := 8     // размер скрытого слоя
+	inputSize := 8  // размер входных векторов
+	latentSize := 8 // размер скрытого слоя
 	epochs := 2000
 	learningRate := 0.05
 
@@ -44,26 +44,45 @@ func main() {
 	// Проверка на обучающих данных
 	// -----------------------------
 	fmt.Println("\n=== Проверка на обучающих данных ===")
-
 	for i, x := range trainBatch {
 		latent, out := encodeDecode(ae, x)
 		fmt.Printf("Обучающие примеры %d:\n", i)
 		fmt.Println("Входные данные:        ", x)
-		fmt.Println("Внутреннее кодирование:  ", latent)
+		fmt.Println("Внутреннее кодирование:", latent)
 		fmt.Println("Восстановленное сетью:", out)
 		fmt.Println()
+	}
+
+	// -----------------------------
+	// Сохранение модели
+	// -----------------------------
+	err := ae.Save("autoencoder_weights.gob")
+	if err != nil {
+		fmt.Println("Error saving model:", err)
+	} else {
+		fmt.Println("Model saved to autoencoder_weights.gob")
+	}
+
+	// -----------------------------
+	// Создаём новый автоэнкодер и загружаем веса
+	// -----------------------------
+	ae2 := autoencoder.NewAutoencoder(inputSize, latentSize)
+	err = ae2.Load("autoencoder_weights.gob")
+	if err != nil {
+		fmt.Println("Error loading model:", err)
+	} else {
+		fmt.Println("Model loaded successfully")
 	}
 
 	// -----------------------------
 	// Проверка на тестовых данных
 	// -----------------------------
 	fmt.Println("\n=== Проверка на тестовых данных ===")
-
 	for i, x := range testBatch {
-		latent, out := encodeDecode(ae, x)
+		latent, out := encodeDecode(ae2, x)
 		fmt.Printf("Тестовые примеры %d:\n", i)
 		fmt.Println("Входные данные:        ", x)
-		fmt.Println("Внутреннее кодирование:  ", latent)
+		fmt.Println("Внутреннее кодирование:", latent)
 		fmt.Println("Восстановленное сетью:", out)
 		fmt.Println()
 	}
@@ -88,9 +107,7 @@ func generateBinaryBatch(n, size int) [][]float64 {
 
 // encodeDecode — чистая кодировка → декодировка
 func encodeDecode(ae *autoencoder.Autoencoder, x []float64) ([]float64, []float64) {
-	// Forward принимает батч, поэтому формируем [][]float64
 	latent, out, _, _ := ae.Forward([][]float64{x})
-
 	return latent[0], binarize(out[0])
 }
 

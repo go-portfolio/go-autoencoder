@@ -1,6 +1,8 @@
 package autoencoder
 
 import (
+	"encoding/gob"
+	"os"
 	"runtime"
 	"sync"
 
@@ -258,4 +260,28 @@ func (ae *Autoencoder) updateWeights(dW1 [][]float64, db1 []float64, dW2 [][]flo
 
 	// Ждём завершения всех горутин
 	wg.Wait()
+}
+
+// Save сохраняет веса и bias автоэнкодера в файл
+func (ae *Autoencoder) Save(filename string) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := gob.NewEncoder(file)
+	return encoder.Encode(ae)
+}
+
+// Load загружает веса и bias из файла
+func (ae *Autoencoder) Load(filename string) error {
+	file, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	decoder := gob.NewDecoder(file)
+	return decoder.Decode(ae)
 }
